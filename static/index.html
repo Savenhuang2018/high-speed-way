@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高速公路服务区 · 车主服务与点评</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6fa; color: #2d3436; }
+  header { background: linear-gradient(135deg, #0984e3, #6c5ce7); color: #fff; padding: 24px 20px; }
+  header h1 { font-size: 22px; }
+  header p { opacity: .85; font-size: 13px; margin-top: 6px; }
+  .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .card h2 { font-size: 16px; margin-bottom: 4px; }
+  .meta { color: #636e72; font-size: 12px; margin-bottom: 8px; }
+  .stars { color: #fdcb6e; letter-spacing: 2px; font-size: 15px; }
+  .badge { display: inline-block; background: #dfe6e9; border-radius: 6px; padding: 2px 8px; font-size: 12px; color: #2d3436; margin-right: 6px; }
+  .merchant-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 10px 0; }
+  .merchant-row:last-child { border-bottom: none; }
+  .merchant-name { font-weight: 600; }
+  .price { color: #e17055; font-size: 13px; }
+  select, input, button { font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid #dcdde1; }
+  button { background: #0984e3; color: #fff; border: none; cursor: pointer; }
+  button:hover { background: #74b9ff; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+  .review { border-left: 3px solid #0984e3; padding: 8px 12px; margin: 8px 0; background: #f8f9fa; border-radius: 4px; }
+  .review .user { font-size: 12px; color: #0984e3; font-weight: 600; }
+  .review .time { font-size: 11px; color: #b2bec3; }
+  .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .hidden { display: none; }
+  .section-title { font-size: 18px; font-weight: 700; margin: 18px 0 10px; }
+  textarea { width: 100%; border-radius: 8px; border: 1px solid #dcdde1; padding: 8px; font-size: 14px; font-family: inherit; }
+  .btn-secondary { background: #6c5ce7; }
+  .btn-secondary:hover { background: #a29bfe; }
+  .tag { color:#e17055; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛣️ 高速公路服务区 · 车主服务与点评</h1>
+  <p>找服务区 → 看业态 → 消费 → 点评，一路不踩坑</p>
+</header>
+
+<div class="container">
+  <!-- 服务区列表 -->
+  <div class="section-title">📍 沿途服务区</div>
+  <div id="area-list"></div>
+
+  <!-- 商户列表 -->
+  <div class="section-title">🏪 服务区业态</div>
+  <div class="card">
+    <div class="filters">
+      <select id="area-select"><option value="">选择服务区</option></select>
+      <select id="cat-select">
+        <option value="">全部业态</option>
+        <option>餐饮</option><option>便利店</option><option>加油</option>
+        <option>充电</option><option>维修</option><option>住宿</option>
+      </select>
+      <button onclick="loadMerchants()">筛选</button>
+    </div>
+    <div id="merchant-list"></div>
+  </div>
+
+  <!-- 商户详情 + 点评 -->
+  <div class="section-title" id="detail-title">📝 商户详情与点评</div>
+  <div class="card" id="detail-card">
+    <div id="detail-body"><span class="meta">点击上方商户查看详情与点评</span></div>
+  </div>
+</div>
+
+<script>
+const API = "";
+let currentMerchant = null;
+let currentUser = 1; // 演示默认用户
+
+async function api(path, opts={}) {
+  const res = await fetch(API + path, {
+    headers: {"Content-Type": "application/json"},
+    ...opts
+  });
+  return res.json();
+}
+
+async function loadAreas() {
+  const areas = await api("/service-areas");
+  const list = document.getElementById("area-list");
+  list.innerHTML = areas.map(a => `
+    <div class="card">
+      <h2>${a.name}</h2>
+      <div class="meta">${a.highway} · 桩号 ${a.mile_marker || "-"} · 经纬(${a.latitude||"-"},${a.longitude||"-"})</div>
+      <div class="meta">${a.description || ""}</div>
+    </div>`).join("");
+  const sel = document.getElementById("area-select");
+  sel.innerHTML = '<option value="">选择服务区</option>' + areas.map(a =>
+    `<option value="${a.id}">${a.name}</option>`).join("");
+}
+
+async function loadMerchants() {
+  const aid = document.getElementById("area-select").value;
+  const cat = document.getElementById("cat-select").value;
+  let q = "/merchants?";
+  if (aid) q += `service_area_id=${aid}`;
+  if (cat) q += (aid ? "&" : "") + `category=${encodeURIComponent(cat)}`;
+  const ms = await api(q);
+  document.getElementById("merchant-list").innerHTML = ms.length ? ms.map(m => `
+    <div class="merchant-row" onclick="showMerchant(${m.id})" style="cursor:pointer">
+      <div>
+        <div class="merchant-name">${m.name}</div>
+        <div>
+          <span class="badge">${m.category}</span>
+          <span class="badge">${m.open_hours || "营业中"}</span>
+          <span class="price">${m.avg_price ? "¥"+m.avg_price+" 起" : ""}</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="stars">${"★".repeat(Math.round(m.rating))}${"☆".repeat(5-Math.round(m.rating))}</div>
+        <div class="meta">${m.rating.toFixed(1)} 分 · ${m.review_count} 条点评</div>
+      </div>
+    </div>`).join("") : '<div class="meta">暂无商户</div>';
+}
+
+async function showMerchant(id) {
+  const m = await api(`/merchants/${id}`);
+  currentMerchant = m;
+  document.getElementById("detail-title").textContent = "📝 " + m.name + " 详情与点评";
+  const reviews = await api(`/reviews?merchant_id=${id}`);
+  document.getElementById("detail-body").innerHTML = `
+    <div class="meta">${m.category} · ${m.open_hours || ""} · 评分 ${m.rating.toFixed(1)}</div>
+    <div class="meta">${m.description || "暂无简介"}</div>
+    <hr style="margin:10px 0;border:none;border-top:1px solid #eee">
+    <div style="font-weight:600;margin-bottom:6px">${reviews.length} 条点评：</div>
+    ${reviews.length ? reviews.map(r => `
+      <div class="review">
+        <div><span class="stars">${"★".repeat(r.rating)}</span>
+          <span class="user">${r.user_nickname || "匿名"}</span>
+          <span class="time">${(r.created_at||"").slice(0,16)}</span>
+        </div>
+        <div style="margin:4px 0">${r.content || ""}</div>
+        <div class="tag">${r.tags ? r.tags.split(",").map(t=>"#"+t).join(" ") : ""}</div>
+      </div>`).join("") : '<div class="meta">还没有点评，来抢沙发~</div>'}
+    <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
+    <div style="font-weight:600">发表点评：</div>
+    <div class="form-row">
+      <select id="new-rating">
+        <option value="5">★★★★★</option><option value="4">★★★★</option>
+        <option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+      </select>
+      <input id="new-tags" placeholder="标签，逗号分隔，如 干净,味道好" style="flex:1;min-width:150px">
+    </div>
+    <textarea id="new-content" rows="2" placeholder="说说你的体验..."></textarea>
+    <div class="form-row">
+      <button onclick="submitReview()">提交点评</button>
+      <button class="btn-secondary" onclick="loadMerchants()">返回列表</button>
+    </div>`;
+}
+
+async function submitReview() {
+  if (!currentMerchant) return;
+  const rating = parseInt(document.getElementById("new-rating").value);
+  const content = document.getElementById("new-content").value;
+  const tags = document.getElementById("new-tags").value;
+  if (!content.trim()) { alert("请填写点评内容"); return; }
+  await api("/reviews", {method:"POST", body: JSON.stringify({
+    merchant_id: currentMerchant.id, user_id: currentUser, rating, content, tags
+  })});
+  alert("点评已提交，待后台审核通过后展示");
+  showMerchant(currentMerchant.id);
+}
+
+loadAreas();
+loadMerchants();
+</script>
+</body>
+</html>

@@ -19,6 +19,16 @@ python3 server.py 8123
 ```
 首次启动自动建表并写入演示数据。浏览器打开：http://127.0.0.1:8123
 
+### 高德地图数据接入（可选）
+`/route/areas` 沿途服务区默认用本地种子数据。接入高德真实服务区 POI：
+1. 在高德开放平台 https://lbs.amap.com 申请 Web 服务 API key（免费）
+2. 配置 key（二选一）：
+   - `export AMAP_KEY=你的key`
+   - 或写入 `~/.hermes/.env`：`AMAP_KEY=你的key`
+3. 重启服务。配置后 `/route/areas` 会自动调用高德搜索"高速公路服务区" POI 并同步入库，结合几何算法沿线筛选；未配置 key 时自动回退本地数据，不影响使用。
+
+> 说明：高德**网页版**搜索接口有反爬滑块验证，无法程序化抓取；正规接入使用 Web 服务 API（需免费 key），稳定合规。
+
 ### 2. 运行测试（零依赖）
 ```bash
 python3 test_stdlib.py
@@ -31,7 +41,7 @@ python3 test_stdlib.py
 |------|------|------|
 | GET | /health | 健康检查 |
 | GET | /service-areas | 服务区列表 |
-| GET | /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km= | 沿途服务区（按沿程距离升序） |
+| GET | /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km= | 沿途服务区（按沿程距离升序，高德/本地数据源） |
 | POST | /service-areas | 新建服务区 |
 | GET | /merchants?service_area_id=&category=&min_rating= | 商户列表（可筛选） |
 | GET | /merchants/{id} | 商户详情（含评分、点评数） |
@@ -50,10 +60,12 @@ python3 test_stdlib.py
 ## 项目结构
 ```
 server.py            # 主服务（零依赖，含静态首页托管）
+amap.py              # 高德地图接入模块（搜索/路径规划/解析/幂等入库）
 static/index.html    # 前端页面（车主端：美团风格首页，沿途服务区）
 static/admin.html    # 运营后台页面
 docs/market-research.md  # 市场调研报告
 test_stdlib.py       # 零依赖集成测试
+test_amap.py         # 高德模块测试
 verify_running.py    # 运行中服务验证脚本
 requirements.txt     # FastAPI 版依赖（可选）
 app/                 # FastAPI + SQLAlchemy 参考实现

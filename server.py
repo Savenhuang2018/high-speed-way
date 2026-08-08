@@ -28,6 +28,8 @@ import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import amap
+
 DB_PATH = os.environ.get("SERVICE_AREA_DB", "service_area.db")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
@@ -197,9 +199,46 @@ def route_areas(areas, cur_lat, cur_lng, dest_lat, dest_lng,
     return result
 
 
+def _sync_amap_service_areas():
+    """从高德拉取沿途服务区 POI 并写入本地表（幂等：已存在则更新坐标）。
+    返回本次新增/更新的服务区 ID 列表。无 key 或失败时返回空（静默回退）。
+    """
+    if not amap.has_key():
+        return []
+    try:
+        pois = amap.search_service_areas()
+    except Exception:
+        return []
+    conn = get_conn()
+    added = []
+    for p in pois:
+        loc = amap.parse_location(p.get("location"))
+        if not loc:
+            continue
+        lat, lng = loc
+        name = (p.get("name") or "").strip() or "高德服务区"
+        # 名称/经纬度做幂等匹配：已有同名则跳过
+        exists = conn.execute(
+            "SELECT id FROM service_areas WHERE name=? OR "
+            "(ABS(latitude-?)<0.01 AND ABS(longitude-?)<0.01)",
+            (name, lat, lng)).fetchone()
+        if exists:
+            continue
+        cur = conn.execute(
+            "INSERT INTO service_areas (name, highway, mile_marker, latitude, longitude, description) "
+            "VALUES (?,?,?,?,?,?)",
+            (name, "高德数据", None, lat, lng,
+             f"来源：高德地图。{(p.get('address') or '')} {(p.get('adname') or '')}"))
+        added.append(cur.lastrowid)
+    conn.commit()
+    conn.close()
+    return added
+
+
 def _handle_route_areas(self, params):
     """GET /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km=
-    返回当前位置到目的地方向沿途的服务区（按沿程距离升序）
+    返回当前位置到目的地方向沿途的服务区（按沿程距离升序）。
+    数据源：优先高德 API（若配置 key）补充，再结合本地库，用几何算法沿线筛选。
     """
     try:
         cur_lat = float(params["cur_lat"][0])
@@ -209,10 +248,20 @@ def _handle_route_areas(self, params):
     except (KeyError, ValueError):
         return self._send(422, {"detail": "需要 cur_lat/cur_lng/dest_lat/dest_lng 参数"})
     max_off = float(params["max_off_km"][0]) if params.get("max_off_km") else 100.0
+
+    # 有高德 key 时先补充数据源
+    source = "local"
+    if amap.has_key():
+        _sync_amap_service_areas()
+        source = "amap"
+
     conn = get_conn()
     areas = [dict(r) for r in conn.execute("SELECT * FROM service_areas").fetchall()]
     conn.close()
     result = route_areas(areas, cur_lat, cur_lng, dest_lat, dest_lng, max_off)
+    # 标注数据来源
+    for r in result:
+        r["data_source"] = source
     self._send(200, result)
 
 

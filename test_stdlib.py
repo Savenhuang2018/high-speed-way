@@ -169,6 +169,19 @@ def main():
         # 参数缺失应报 422
         code, _ = request("GET", "/route/areas?cur_lat=31.23")
         check("缺参数报422", code == 422)
+
+        # 11. 服务区搜索
+        # 注意：request() 内部已对 query 做百分号编码，这里直接传中文，切勿重复 quote
+        code, sr = request("GET", "/service-areas/search?q=阳澄湖")
+        check("按名称搜索", code == 200 and len(sr) >= 1 and "阳澄湖" in sr[0]["name"])
+        check("搜索结果含商户数", code == 200 and "merchant_count" in sr[0])
+        check("搜索结果含业态标签", code == 200 and isinstance(sr[0].get("categories"), list))
+        code, sr2 = request("GET", "/service-areas/search?q=京沪")
+        check("按高速搜索多结果", code == 200 and len(sr2) >= 3)
+        code, sr3 = request("GET", "/service-areas/search?q=不存在xyz")
+        check("无匹配返回空", code == 200 and sr3 == [])
+        code, _ = request("GET", "/service-areas/search?q=")
+        check("空关键词422", code == 422)
     finally:
         proc.terminate()
         proc.wait(timeout=5)

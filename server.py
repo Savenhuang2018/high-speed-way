@@ -454,6 +454,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"status": "ok"})
             elif path == "/service-areas":
                 self._handle_list_service_areas()
+            elif path == "/service-areas/search":
+                self._handle_search_service_areas(params)
             elif path == "/route/areas":
                 _handle_route_areas(self, params)
             elif path.startswith("/service-areas/"):
@@ -527,6 +529,43 @@ class Handler(BaseHTTPRequestHandler):
         rows = conn.execute("SELECT * FROM service_areas ORDER BY id").fetchall()
         conn.close()
         self._send(200, [dict(r) for r in rows])
+
+    def _handle_search_service_areas(self, params):
+        """GET /service-areas/search?q=关键词
+        按名称/高速/桩号/描述模糊搜索服务区，返回附带商户数、评分、业态标签。
+        """
+        q = (params.get("q", [""])[0] or "").strip()
+        if not q:
+            return self._send(422, {"detail": "缺少搜索关键词 q"})
+        conn = get_conn()
+        like = f"%{q}%"
+        rows = conn.execute(
+            "SELECT * FROM service_areas "
+            "WHERE name LIKE ? OR highway LIKE ? OR mile_marker LIKE ? OR description LIKE ? "
+            "ORDER BY id", (like, like, like, like)
+        ).fetchall()
+        result = []
+        for a in rows:
+            item = dict(a)
+            area_id = a["id"]
+            # 商户数
+            mcnt = conn.execute(
+                "SELECT COUNT(*) FROM merchants WHERE service_area_id=? AND is_active=1",
+                (area_id,)).fetchone()[0]
+            item["merchant_count"] = mcnt
+            # 平均评分（有商户时）
+            avg = conn.execute(
+                "SELECT AVG(rating) FROM merchants WHERE service_area_id=? AND is_active=1",
+                (area_id,)).fetchone()[0]
+            item["avg_rating"] = round(avg, 2) if avg else 0.0
+            # 业态标签
+            cats = conn.execute(
+                "SELECT DISTINCT category FROM merchants WHERE service_area_id=? AND is_active=1",
+                (area_id,)).fetchall()
+            item["categories"] = [c[0] for c in cats]
+            result.append(item)
+        conn.close()
+        self._send(200, result)
 
     def _handle_get_service_area(self, area_id):
         conn = get_conn()

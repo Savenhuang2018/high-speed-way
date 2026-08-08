@@ -33,14 +33,15 @@ python3 server.py 8123
 ```bash
 python3 test_stdlib.py
 ```
-22 项集成测试，覆盖：服务区/商户/点评的 CRUD、业态筛选、点评审核闭环、评分重算、非法评分校验、优惠券领取去重、运营数据看板统计、智能审核（敏感词/低分转人工）、商户回复点评。
-（当前共 27 项）
+22 项集成测试，覆盖：服务区/商户/点评的 CRUD、业态筛选、点评审核闭环、评分重算、非法评分校验、优惠券领取去重、运营数据看板统计、智能审核（敏感词/低分转人工）、商户回复点评、沿途服务区、服务区搜索。
+（当前共 39 项）
 
 ## API 一览
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /health | 健康检查 |
 | GET | /service-areas | 服务区列表 |
+| GET | /service-areas/search?q= | 搜索服务区（名称/高速/桩号/描述，含商户数/评分/业态） |
 | GET | /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km= | 沿途服务区（按沿程距离升序，高德/本地数据源） |
 | POST | /service-areas | 新建服务区 |
 | GET | /merchants?service_area_id=&category=&min_rating= | 商户列表（可筛选） |

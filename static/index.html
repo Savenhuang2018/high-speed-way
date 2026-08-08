@@ -41,6 +41,33 @@
   }
   .btn-search:active { transform:scale(.97); }
 
+  /* ---------- 搜索框 ---------- */
+  .search-bar {
+    display:flex; align-items:center; gap:8px; background:var(--card);
+    border-radius:12px; padding:8px 14px; margin-bottom:4px;
+    box-shadow:0 1px 4px rgba(0,0,0,.05);
+  }
+  .search-icon { font-size:15px; }
+  .search-bar input {
+    flex:1; border:none; outline:none; font-size:14px; background:transparent; color:var(--ink); min-width:0;
+  }
+  .search-bar input::-webkit-input-placeholder { color:#bbb; }
+  .btn-search-mini {
+    background:var(--primary); color:#fff; border:none; border-radius:8px;
+    padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer; flex-shrink:0;
+  }
+  .btn-search-mini:active { transform:scale(.97); }
+
+  /* 搜索结果服务区卡片（复用 area-card） */
+  .search-area-card {
+    background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05); cursor:pointer; transition: transform .15s;
+  }
+  .search-area-card:hover { transform: translateY(-1px); }
+  .search-area-card h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
+  .search-area-card .meta { color:var(--ink-2); font-size:12px; }
+  .search-area-card .tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
   /* ---------- 分类宫格 ---------- */
   .cats {
     background: var(--card); border-radius: var(--radius); margin: 12px 12px;
@@ -140,7 +167,25 @@
 <!-- 分类宫格 -->
 <div class="cats" id="cats"></div>
 
+<!-- 搜索框 -->
+<div class="container" style="padding-top:0">
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input id="search-input" placeholder="搜索服务区：名称 / 高速 / 桩号" onkeyup="onSearchInput(event)">
+    <button class="btn-search-mini" onclick="doSearch()">搜索</button>
+  </div>
+</div>
+
 <div class="container">
+  <!-- 搜索结果显示区 -->
+  <div id="view-search" class="hidden">
+    <div class="section-head">
+      <h2>🔍 搜索结果</h2>
+      <span class="sub" id="search-sub"></span>
+    </div>
+    <div id="search-list"></div>
+  </div>
+
   <!-- 沿途服务区 -->
   <div id="view-route">
     <div class="section-head">
@@ -334,7 +379,41 @@ async function submitReview() {
 
 function backToRoute() {
   document.getElementById("view-detail").classList.add("hidden");
+  document.getElementById("view-search").classList.add("hidden");
   document.getElementById("view-route").classList.remove("hidden");
+}
+
+// ---------- 搜索服务区 ----------
+function onSearchInput(e) {
+  if (e.key === "Enter") doSearch();
+}
+
+async function doSearch() {
+  const q = document.getElementById("search-input").value.trim();
+  if (!q) { alert("请输入搜索关键词"); return; }
+  const results = await api(`/service-areas/search?q=${encodeURIComponent(q)}`);
+
+  document.getElementById("view-search").classList.remove("hidden");
+  document.getElementById("view-route").classList.add("hidden");
+  document.getElementById("view-detail").classList.add("hidden");
+  document.getElementById("search-sub").textContent = `“${q}” 找到 ${results.length} 个`;
+
+  const list = document.getElementById("search-list");
+  if (!results.length) {
+    list.innerHTML = '<div class="empty">未找到相关服务区，试试其他关键词</div>';
+    return;
+  }
+  list.innerHTML = results.map(a => `
+    <div class="search-area-card" onclick="openArea(${a.id})">
+      <h3>${a.name}</h3>
+      <div class="meta">${a.highway} · 桩号 ${a.mile_marker||"-"}</div>
+      ${a.description ? `<div class="meta">${a.description}</div>` : ""}
+      <div class="tags">
+        <span class="tag">${a.merchant_count} 家商户</span>
+        <span class="tag">⭐ ${a.avg_rating.toFixed(1)}</span>
+        ${(a.categories||[]).map(c=>`<span class="tag">${c}</span>`).join("")}
+      </div>
+    </div>`).join("");
 }
 
 renderCats();

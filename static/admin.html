@@ -5,95 +5,213 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>服务区运营后台 · 管理端</title>
 <style>
+  :root {
+    --primary: #4f6df5;
+    --primary-dark: #3b54d8;
+    --danger: #f5564a;
+    --warn: #f5a623;
+    --success: #22c58b;
+    --ink: #1f2430;
+    --ink-2: #5a6072;
+    --line: #eef0f4;
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --radius: 14px;
+    --shadow: 0 6px 20px rgba(31,36,48,.06), 0 1px 3px rgba(31,36,48,.05);
+    --shadow-hover: 0 12px 30px rgba(31,36,48,.12);
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #2d3436; }
-  header { background: #2d3436; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
-  header h1 { font-size: 20px; }
-  header a { color: #74b9ff; font-size: 13px; text-decoration: none; }
-  .container { max-width: 1080px; margin: 0 auto; padding: 20px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-bottom: 20px; }
-  .stat-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  .stat-card .num { font-size: 28px; font-weight: 700; }
-  .stat-card .label { color: #636e72; font-size: 13px; margin-top: 4px; }
-  .panel { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  .panel h2 { font-size: 16px; margin-bottom: 14px; border-left: 4px solid #0984e3; padding-left: 10px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; }
-  th { color: #636e72; font-weight: 600; background: #fafafa; }
-  .badge { display:inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
-  .badge-green { background:#d4edda; color:#155724; }
-  .badge-red { background:#f8d7da; color:#721c24; }
-  .badge-gray { background:#e2e3e5; color:#383d41; }
-  .btn { padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .btn-ok { background:#0984e3; color:#fff; }
-  .btn-warn { background:#fdcb6e; color:#2d3436; }
-  .btn-danger { background:#e17055; color:#fff; }
-  .stars { color:#fdcb6e; }
-  .tabs { display:flex; gap:8px; margin-bottom:16px; }
-  .tab { padding:8px 16px; border-radius:8px; background:#dfe6e9; cursor:pointer; font-size:14px; }
-  .tab.active { background:#0984e3; color:#fff; }
-  .tab-content { display:none; }
-  .tab-content.active { display:block; }
-  .empty { color:#b2bec3; text-align:center; padding:20px; }
-  .reply-box { background:#e8f4fd; border-radius:6px; padding:8px 10px; margin-top:6px; font-size:13px; }
-  .muted { color:#b2bec3; font-size:12px; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink); font-size: 14px;
+    display: flex; min-height: 100vh;
+  }
+
+  /* ---------- 侧边栏 ---------- */
+  .sidebar {
+    width: 232px; background: linear-gradient(180deg, #1f2430 0%, #2a3040 100%);
+    color: #c7cdd9; display: flex; flex-direction: column; flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar .brand {
+    padding: 22px 20px 18px; color: #fff; font-size: 17px; font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,.08); letter-spacing: .5px;
+  }
+  .sidebar .brand small { display:block; color:#8a93a6; font-weight:400; font-size:11px; margin-top:4px; }
+  .nav { padding: 14px 10px; flex: 1; }
+  .nav a {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+    color: #c7cdd9; text-decoration: none; border-radius: 10px;
+    margin-bottom: 4px; font-weight: 500; transition: all .18s ease; cursor: pointer;
+  }
+  .nav a:hover { background: rgba(255,255,255,.07); color:#fff; }
+  .nav a.active { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(79,109,245,.4); }
+  .nav a .ico { width: 20px; text-align: center; font-size: 16px; }
+  .sidebar .foot { padding: 16px 20px; border-top:1px solid rgba(255,255,255,.08); font-size:12px; color:#7f8798; }
+
+  /* ---------- 主区 ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    background: var(--card); padding: 0 28px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font-size: 17px; font-weight: 700; }
+  .topbar .crumbs { color: var(--ink-2); font-size: 13px; }
+  .topbar .crumbs b { color: var(--primary); }
+  .content { padding: 26px 28px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+  /* ---------- 统计卡片 ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border-radius: var(--radius); padding: 20px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .stat-card .accent { position:absolute; top:0; left:0; right:0; height:4px; }
+  .stat-card .num { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-top: 8px; }
+  .stat-card .label { color: var(--ink-2); font-size: 13px; }
+  .stat-card .ico { font-size: 20px; }
+  .c-blue { background:linear-gradient(90deg,#4f6df5,#6f8bff); }
+  .c-green { background:linear-gradient(90deg,#22c58b,#4ad8a6); }
+  .c-orange { background:linear-gradient(90deg,#f5a623,#f7b955); }
+  .c-red { background:linear-gradient(90deg,#f5564a,#f77d72); }
+  .c-purple { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+  .c-teal { background:linear-gradient(90deg,#14b8a6,#2dd4bf); }
+
+  /* ---------- 面板 ---------- */
+  .panel {
+    background: var(--card); border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow); border: 1px solid var(--line); margin-bottom: 22px;
+  }
+  .panel h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display:flex; align-items:center; gap:8px; }
+  .panel h2::before { content:""; width:4px; height:16px; background:var(--primary); border-radius:2px; }
+
+  /* ---------- 表格 ---------- */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing:.4px; background:#fafbfd; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: #f8faff; }
+
+  /* ---------- 徽章 ---------- */
+  .badge { display:inline-flex; align-items:center; gap:5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight:600; }
+  .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .badge-green { background:#e7f8f1; color:#16a271; }
+  .badge-red { background:#fdeeec; color:#d63e33; }
+  .badge-gray { background:#eef0f4; color:#5a6072; }
+  .badge-blue { background:#eaf0ff; color:#3b54d8; }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    padding: 7px 16px; border: none; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: all .15s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-ok { background: var(--primary); color:#fff; box-shadow:0 3px 10px rgba(79,109,245,.3); }
+  .btn-ok:hover { background: var(--primary-dark); }
+  .btn-danger { background: var(--danger); color:#fff; box-shadow:0 3px 10px rgba(245,86,74,.3); }
+  .btn-danger:hover { background:#d63e33; }
+  .btn-ghost { background: #f1f3f7; color: var(--ink); }
+  .btn-ghost:hover { background: #e5e9f0; }
+  .btn-sm { padding: 4px 12px; font-size: 12px; border-radius:7px; }
+
+  /* ---------- 星级 ---------- */
+  .stars { color:#f5a623; letter-spacing: 1px; }
+
+  /* ---------- 点评卡片 ---------- */
+  .review-card {
+    border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+    margin-bottom: 12px; transition: box-shadow .18s, border-color .18s; background:#fff;
+  }
+  .review-card:hover { box-shadow: var(--shadow); border-color:#dfe4ee; }
+  .review-card .head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,#4f6df5,#8b5cf6);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;
+  }
+  .reply-box { background:#f2f6ff; border-left:3px solid var(--primary); border-radius:8px; padding:10px 12px; margin-top:10px; font-size:13px; }
+  .reply-box b { color: var(--primary); }
+  .actions { display:flex; gap:8px; margin-top:12px; }
+  .muted { color:#9aa1b1; font-size:12px; }
+  .empty { color:#9aa1b1; text-align:center; padding:36px; font-size:14px; }
+  .hidden { display:none !important; }
+
+  @media (max-width: 760px) {
+    .sidebar { display: none; }
+    .content { padding: 16px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>🛣️ 服务区运营后台</h1>
-  <a href="/index.html">← 返回车主端</a>
-</header>
 
-<div class="container">
-  <!-- 数据看板 -->
-  <div class="stats" id="stats"></div>
+<!-- 侧边栏 -->
+<aside class="sidebar">
+  <div class="brand">🛣️ 服务区运营后台<small>High-Speed-Way Admin</small></div>
+  <nav class="nav">
+    <a class="active" data-nav="dashboard" onclick="switchNav('dashboard')"><span class="ico">📊</span> 数据看板</a>
+    <a data-nav="moderation" onclick="switchNav('moderation')"><span class="ico">🛡️</span> 点评审核 <span id="pending-count" style="margin-left:auto;background:#f5564a;color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;"></span></a>
+    <a data-nav="merchants" onclick="switchNav('merchants')"><span class="ico">🏪</span> 商户管理</a>
+    <a data-nav="reviews" onclick="switchNav('reviews')"><span class="ico">💬</span> 全部点评</a>
+    <a data-nav="areas" onclick="switchNav('areas')"><span class="ico">📍</span> 服务区</a>
+  </nav>
+  <div class="foot">© 2026 High-Speed-Way</div>
+</aside>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="moderation">待审核点评 <span id="pending-count" style="color:#e17055"></span></div>
-    <div class="tab" data-tab="merchants">商户管理</div>
-    <div class="tab" data-tab="reviews">全部点评</div>
-    <div class="tab" data-tab="areas">服务区</div>
+<!-- 主区 -->
+<div class="main">
+  <div class="topbar">
+    <div class="crumbs">运营后台 <b>/</b> <span id="crumb">数据看板</span></div>
+    <a href="/index.html" style="color:var(--primary);font-weight:600;font-size:13px;text-decoration:none;">← 车主端</a>
   </div>
 
-  <!-- 待审核 -->
-  <div class="tab-content active" id="tab-moderation">
-    <div class="panel">
-      <h2>点评审核</h2>
-      <div id="moderation-list"></div>
+  <div class="content">
+    <!-- 数据看板（常驻） -->
+    <div id="view-dashboard">
+      <div class="stats" id="stats"></div>
+      <div class="panel">
+        <h2>业态分布</h2>
+        <div id="category-bars"></div>
+      </div>
+      <div class="panel">
+        <h2>差评预警（评分 &lt; 3）</h2>
+        <div id="low-rating"></div>
+      </div>
     </div>
-  </div>
 
-  <!-- 商户 -->
-  <div class="tab-content" id="tab-merchants">
-    <div class="panel">
-      <h2>商户管理（按评分排序）</h2>
-      <table>
-        <thead><tr><th>商户</th><th>业态</th><th>服务区</th><th>评分</th><th>点评数</th><th>状态</th></tr></thead>
-        <tbody id="merchant-table"></tbody>
-      </table>
+    <!-- 点评审核 -->
+    <div id="view-moderation" class="hidden">
+      <div class="panel"><h2>待审核点评</h2><div id="moderation-list"></div></div>
     </div>
-  </div>
 
-  <!-- 全部点评 -->
-  <div class="tab-content" id="tab-reviews">
-    <div class="panel">
-      <h2>全部点评</h2>
-      <div id="reviews-list"></div>
+    <!-- 商户管理 -->
+    <div id="view-merchants" class="hidden">
+      <div class="panel">
+        <h2>商户管理（按评分排序）</h2>
+        <table><thead><tr><th>商户</th><th>业态</th><th>服务区</th><th>评分</th><th>点评数</th><th>状态</th></tr></thead>
+        <tbody id="merchant-table"></tbody></table>
+      </div>
     </div>
-  </div>
 
-  <!-- 服务区 -->
-  <div class="tab-content" id="tab-areas">
-    <div class="panel">
-      <h2>服务区列表</h2>
-      <div id="areas-list"></div>
+    <!-- 全部点评 -->
+    <div id="view-reviews" class="hidden">
+      <div class="panel"><h2>全部点评</h2><div id="reviews-list"></div></div>
+    </div>
+
+    <!-- 服务区 -->
+    <div id="view-areas" class="hidden">
+      <div class="panel"><h2>服务区列表</h2><div id="areas-list"></div></div>
     </div>
   </div>
 </div>
 
 <script>
 const API = "";
+const CRUMB = {dashboard:"数据看板", moderation:"点评审核", merchants:"商户管理", reviews:"全部点评", areas:"服务区"};
 
 async function api(path, opts={}) {
   const res = await fetch(API + path, {headers: {"Content-Type":"application/json"}, ...opts});
@@ -101,45 +219,86 @@ async function api(path, opts={}) {
   return text ? JSON.parse(text) : {};
 }
 
-// Tabs
-document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active"));
-  t.classList.add("active");
-  document.getElementById("tab-" + t.dataset.tab).classList.add("active");
-}));
+// 导航切换
+function switchNav(name) {
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.dataset.nav === name));
+  document.querySelectorAll("[id^=view-]").forEach(v => v.classList.add("hidden"));
+  document.getElementById("view-" + name).classList.remove("hidden");
+  document.getElementById("crumb").textContent = CRUMB[name];
+  // 按需加载
+  if (name === "moderation") loadModeration();
+  if (name === "merchants") loadMerchants();
+  if (name === "reviews") loadReviews();
+  if (name === "areas") loadAreas();
+}
 
 // 数据看板
 async function loadDashboard() {
   const d = await api("/stats/dashboard");
-  document.getElementById("stats").innerHTML = `
-    <div class="stat-card"><div class="num">${d.service_areas}</div><div class="label">服务区</div></div>
-    <div class="stat-card"><div class="num">${d.merchants}</div><div class="label">入驻商户</div></div>
-    <div class="stat-card"><div class="num">${d.reviews.total}</div><div class="label">总点评</div></div>
-    <div class="stat-card"><div class="num" style="color:#e17055">${d.reviews.pending}</div><div class="label">待审核</div></div>
-    <div class="stat-card"><div class="num">${d.avg_merchant_rating}</div><div class="label">平均评分</div></div>
-    <div class="stat-card"><div class="num">${d.active_coupons}</div><div class="label">优惠券</div></div>`;
-  document.getElementById("pending-count").textContent = d.reviews.pending ? `(${d.reviews.pending})` : "";
+  const cards = [
+    {num:d.service_areas, label:"服务区", ico:"📍", c:"c-blue"},
+    {num:d.merchants, label:"入驻商户", ico:"🏪", c:"c-green"},
+    {num:d.reviews.total, label:"总点评", ico:"💬", c:"c-purple"},
+    {num:d.reviews.pending, label:"待审核", ico:"🛡️", c:"c-red"},
+    {num:d.avg_merchant_rating, label:"平均评分", ico:"⭐", c:"c-orange"},
+    {num:d.active_coupons, label:"优惠券", ico:"🎫", c:"c-teal"},
+  ];
+  document.getElementById("stats").innerHTML = cards.map(c => `
+    <div class="stat-card">
+      <div class="accent ${c.c}"></div>
+      <span class="ico">${c.ico}</span>
+      <span class="num">${c.num}</span>
+      <span class="label">${c.label}</span>
+    </div>`).join("");
+  document.getElementById("pending-count").textContent = d.reviews.pending || "";
+
+  // 业态分布条
+  const cats = d.category_distribution || [];
+  const max = Math.max(1, ...cats.map(c => c.cnt));
+  document.getElementById("category-bars").innerHTML = cats.length ? cats.map(c => {
+    const pct = Math.round(c.cnt / max * 100);
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-weight:600">
+        <span>${c.category}</span><span class="muted">${c.cnt} 家</span>
+      </div>
+      <div style="height:10px;background:#eef0f4;border-radius:6px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4f6df5,#8b5cf6);border-radius:6px;transition:width .5s"></div>
+      </div>
+    </div>`; }).join("") : '<div class="empty">暂无数据</div>';
+
+  // 差评预警
+  const bad = d.low_rating_merchants || [];
+  document.getElementById("low-rating").innerHTML = bad.length ? bad.map(m => `
+    <div class="review-card">
+      <div class="head">
+        <div class="avatar">${(m.name||"?").charAt(0)}</div>
+        <div><b>${m.name}</b> <span class="badge badge-gray">${m.category}</span></div>
+        <div style="margin-left:auto"><span class="stars">${"★".repeat(Math.round(m.rating))}</span> <b style="color:#d63e33">${m.rating}</b></div>
+      </div>
+      <div class="muted" style="margin-top:6px">评分低于 3 分，建议关注改进</div>
+    </div>`).join("") : '<div class="empty">✅ 暂无低评分商户，运营状态良好</div>';
 }
 
-// 加载待审核点评：对所有商户查 review，智能审核后待审核的才出现
-// 说明：后台通过遍历商户调 /reviews 只能拿到已审核的，故增加 /reviews/all 与 /reviews/pending 接口由后端提供
+// 点评审核
 async function loadModeration() {
   const list = document.getElementById("moderation-list");
   const pending = await api("/reviews/pending");
   if (!pending.length) { list.innerHTML = '<div class="empty">🎉 没有待审核点评</div>'; return; }
   list.innerHTML = pending.map(r => `
-    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
-      <div>
-        <span class="stars">${"★".repeat(r.rating)}</span>
-        <strong>${r.user_nickname || "匿名"}</strong>
-        <span class="muted">商户#${r.merchant_id} · ${(r.created_at||"").slice(0,16)}</span>
+    <div class="review-card">
+      <div class="head">
+        <div class="avatar">${(r.user_nickname||"匿").charAt(0)}</div>
+        <div><b>${r.user_nickname || "匿名"}</b>
+          <span class="badge badge-blue">商户 #${r.merchant_id}</span>
+          <span class="muted">${(r.created_at||"").slice(0,16)}</span>
+        </div>
+        <div style="margin-left:auto"><span class="stars">${"★".repeat(r.rating)}</span>${"☆".repeat(5-r.rating)}</div>
       </div>
-      <div style="margin:6px 0">${r.content || "(无内容)"}</div>
+      <div style="margin:10px 0">${r.content || "(无内容)"}</div>
       <div class="muted">${r.tags ? r.tags.split(",").map(t=>"#"+t).join(" ") : ""}</div>
-      <div style="margin-top:10px">
-        <button class="btn btn-ok" onclick="approve(${r.id})">通过</button>
-        <button class="btn btn-danger" onclick="reject(${r.id})">驳回</button>
+      <div class="actions">
+        <button class="btn btn-ok btn-sm" onclick="approve(${r.id})">✓ 通过</button>
+        <button class="btn btn-danger btn-sm" onclick="reject(${r.id})">✕ 驳回</button>
       </div>
     </div>`).join("");
 }
@@ -152,8 +311,10 @@ async function loadMerchants() {
   const ms = await api("/merchants");
   document.getElementById("merchant-table").innerHTML = ms.map(m => `
     <tr>
-      <td>${m.name}</td><td>${m.category}</td><td>服务区#${m.service_area_id}</td>
-      <td><span class="stars">${"★".repeat(Math.round(m.rating))}</span> ${m.rating.toFixed(1)}</td>
+      <td><b>${m.name}</b></td>
+      <td><span class="badge badge-blue">${m.category}</span></td>
+      <td class="muted">服务区 #${m.service_area_id}</td>
+      <td><span class="stars">${"★".repeat(Math.round(m.rating))}</span> <b>${m.rating.toFixed(1)}</b></td>
       <td>${m.review_count}</td>
       <td>${m.is_active ? '<span class="badge badge-green">营业中</span>' : '<span class="badge badge-gray">已下架</span>'}</td>
     </tr>`).join("") || '<tr><td colspan="6" class="empty">暂无商户</td></tr>';
@@ -163,15 +324,21 @@ async function loadMerchants() {
 async function loadReviews() {
   const all = await api("/reviews/all");
   document.getElementById("reviews-list").innerHTML = all.length ? all.map(r => `
-    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
-      <div>
-        <span class="stars">${"★".repeat(r.rating)}</span>
-        <strong>${r.user_nickname || "匿名"}</strong>
-        <span class="muted">商户#${r.merchant_id} · ${(r.created_at||"").slice(0,16)}</span>
-        ${r.is_approved ? '<span class="badge badge-green">已通过</span>' : '<span class="badge badge-gray">待审核</span>'}
+    <div class="review-card">
+      <div class="head">
+        <div class="avatar">${(r.user_nickname||"匿").charAt(0)}</div>
+        <div><b>${r.user_nickname || "匿名"}</b>
+          <span class="badge badge-blue">商户 #${r.merchant_id}</span>
+          <span class="muted">${(r.created_at||"").slice(0,16)}</span>
+        </div>
+        <div style="margin-left:auto">
+          ${r.is_approved ? '<span class="badge badge-green">已通过</span>' : '<span class="badge badge-gray">待审核</span>'}
+        </div>
       </div>
-      <div style="margin:6px 0">${r.content || "(无内容)"}</div>
-      ${r.merchant_reply ? `<div class="reply-box">商家回复：${r.merchant_reply}</div>` : ""}
+      <div style="margin:10px 0">${r.content || "(无内容)"}
+        <div style="margin-top:6px"><span class="stars">${"★".repeat(r.rating)}</span>${"☆".repeat(5-r.rating)}</div>
+      </div>
+      ${r.merchant_reply ? `<div class="reply-box"><b>商家回复</b>：${r.merchant_reply}</div>` : ""}
     </div>`).join("") : '<div class="empty">暂无点评</div>';
 }
 
@@ -179,18 +346,16 @@ async function loadReviews() {
 async function loadAreas() {
   const areas = await api("/service-areas");
   document.getElementById("areas-list").innerHTML = areas.map(a => `
-    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
-      <strong>${a.name}</strong>
-      <span class="muted">· ${a.highway} · 桩号${a.mile_marker||"-"}</span>
-      <div class="muted" style="margin-top:4px">${a.description||""}</div>
+    <div class="review-card">
+      <div class="head">
+        <div class="avatar">📍</div>
+        <div><b>${a.name}</b><div class="muted">${a.highway} · 桩号 ${a.mile_marker||"-"}</div></div>
+      </div>
+      <div class="muted" style="margin-top:8px">${a.description||""}</div>
     </div>`).join("") || '<div class="empty">暂无服务区</div>';
 }
 
 loadDashboard();
-loadModeration();
-loadMerchants();
-loadReviews();
-loadAreas();
 </script>
 </body>
 </html>

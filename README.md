@@ -33,8 +33,8 @@ python3 server.py 8123
 ```bash
 python3 test_stdlib.py
 ```
-22 项集成测试，覆盖：服务区/商户/点评的 CRUD、业态筛选、点评审核闭环、评分重算、非法评分校验、优惠券领取去重、运营数据看板统计、智能审核（敏感词/低分转人工）、商户回复点评、沿途服务区、服务区搜索。
-（当前共 39 项）
+22 项集成测试，覆盖：服务区/商户/点评的 CRUD、业态筛选、点评审核闭环、评分重算、非法评分校验、优惠券领取去重、运营数据看板统计、智能审核（敏感词/低分转人工）、商户回复点评、沿途服务区、服务区搜索、收藏。
+（当前共 44 项）
 
 ## API 一览
 | 方法 | 路径 | 说明 |
@@ -55,6 +55,8 @@ python3 test_stdlib.py
 | POST | /coupons/{id}/claim | 领取优惠券 {user_id} |
 | GET | /users/me/coupons?user_id= | 我的优惠券 |
 | GET | /stats/dashboard | 运营数据看板（客流/点评/业态/差评预警） |
+| GET | /favorites?user_id= | 我的收藏服务区 |
+| POST | /favorites/toggle | 收藏/取消收藏 {user_id, area_id} |
 | GET | /users/{id} | 用户详情 |
 | POST | /users | 创建用户 |
 

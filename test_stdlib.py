@@ -182,6 +182,18 @@ def main():
         check("无匹配返回空", code == 200 and sr3 == [])
         code, _ = request("GET", "/service-areas/search?q=")
         check("空关键词422", code == 422)
+
+        # 12. 收藏
+        code, fav = request("POST", "/favorites/toggle", {"user_id": 1, "area_id": 1})
+        check("收藏服务区", code == 200 and fav["favorited"] is True)
+        code, fav2 = request("POST", "/favorites/toggle", {"user_id": 1, "area_id": 1})
+        check("取消收藏(幂等切换)", code == 200 and fav2["favorited"] is False)
+        code, fav3 = request("POST", "/favorites/toggle", {"user_id": 1, "area_id": 2})
+        check("收藏另一个", code == 200 and fav3["favorited"] is True)
+        code, mine = request("GET", "/favorites?user_id=1")
+        check("我的收藏含1个", code == 200 and len(mine) == 1 and mine[0]["id"] == 2)
+        code, _ = request("POST", "/favorites/toggle", {"user_id": 1, "area_id": 9999})
+        check("收藏不存在服务区404", code == 404)
     finally:
         proc.terminate()
         proc.wait(timeout=5)

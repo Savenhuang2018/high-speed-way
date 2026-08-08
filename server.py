@@ -108,6 +108,13 @@ def init_db():
             used INTEGER DEFAULT 0,
             claimed_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            area_id INTEGER NOT NULL REFERENCES service_areas(id),
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(user_id, area_id)
+        );
         """
     )
     conn.commit()
@@ -476,6 +483,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_my_coupons(params)
             elif path == "/stats/dashboard":
                 self._handle_dashboard()
+            elif path == "/favorites":
+                self._handle_list_favorites(params)
             elif path.startswith("/users/"):
                 self._handle_get_user(int(path.rsplit("/", 1)[1]))
             else:
@@ -497,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_create_merchant(self._read_body())
             elif path == "/reviews":
                 self._handle_create_review(self._read_body())
+            elif path == "/favorites/toggle":
+                self._handle_toggle_favorite(self._read_body())
             elif path.startswith("/coupons/") and path.endswith("/claim"):
                 cid, uid = int(path.split("/")[2]), self._read_body().get("user_id")
                 self._handle_claim_coupon(cid, uid)
@@ -856,6 +867,54 @@ class Handler(BaseHTTPRequestHandler):
             "category_distribution": [dict(r) for r in cat_rows],
             "low_rating_merchants": [dict(r) for r in bad_merchants],
         })
+
+    # ---- 收藏 ----
+    def _handle_list_favorites(self, params):
+        """GET /favorites?user_id=N 当前用户收藏的服务区列表"""
+        try:
+            uid = int(params.get("user_id", ["0"])[0])
+        except ValueError:
+            return self._send(422, {"detail": "user_id 无效"})
+        if not uid:
+            return self._send(422, {"detail": "缺少 user_id 参数"})
+        conn = get_conn()
+        rows = conn.execute(
+            "SELECT sa.*, f.created_at AS fav_time FROM favorites f "
+            "JOIN service_areas sa ON sa.id = f.area_id "
+            "WHERE f.user_id=? ORDER BY f.created_at DESC", (uid,)).fetchall()
+        result = []
+        for a in rows:
+            item = dict(a)
+            area_id = a["id"]
+            mcnt = conn.execute(
+                "SELECT COUNT(*) FROM merchants WHERE service_area_id=? AND is_active=1",
+                (area_id,)).fetchone()[0]
+            item["merchant_count"] = mcnt
+            result.append(item)
+        conn.close()
+        self._send(200, result)
+
+    def _handle_toggle_favorite(self, body):
+        """POST /favorites/toggle {user_id, area_id} 收藏/取消收藏（幂等切换）"""
+        uid = body.get("user_id")
+        aid = body.get("area_id")
+        if not uid or not aid:
+            return self._send(422, {"detail": "需要 user_id 和 area_id"})
+        conn = get_conn()
+        if not conn.execute("SELECT id FROM service_areas WHERE id=?", (aid,)).fetchone():
+            conn.close()
+            return self._send(404, {"detail": "服务区不存在"})
+        existing = conn.execute(
+            "SELECT id FROM favorites WHERE user_id=? AND area_id=?", (uid, aid)).fetchone()
+        if existing:
+            conn.execute("DELETE FROM favorites WHERE id=?", (existing["id"],))
+            conn.commit()
+            conn.close()
+            return self._send(200, {"favorited": False, "area_id": aid})
+        conn.execute("INSERT INTO favorites (user_id, area_id) VALUES (?,?)", (uid, aid))
+        conn.commit()
+        conn.close()
+        return self._send(200, {"favorited": True, "area_id": aid})
 
 
 def main():

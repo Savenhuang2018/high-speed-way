@@ -134,6 +134,42 @@
   .back { background:none; border:none; color:var(--ink-2); cursor:pointer; font-size:13px; padding:4px 0; }
   .hidden { display:none !important; }
   input::-webkit-input-placeholder { color:#bbb; }
+
+  /* ---------- 底部导航栏 ---------- */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+    background: #fff; border-top: 1px solid #eee;
+    display: flex; justify-content: space-around; align-items: center;
+    height: 58px; padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 10px rgba(0,0,0,.05);
+  }
+  .bottom-nav .nav-item {
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    cursor:pointer; padding:6px 0; color:#999; font-size:11px;
+  }
+  .bottom-nav .nav-item .ni { font-size:20px; }
+  .bottom-nav .nav-item.active { color: var(--primary); font-weight:700; }
+  .bottom-spacer { height: 76px; }
+
+  /* ---------- 收藏按钮 ---------- */
+  .fav-btn {
+    display:inline-flex; align-items:center; gap:4px; border:none; cursor:pointer;
+    background:#f0f0f0; color:var(--ink-2); border-radius:9px; padding:8px 14px; font-size:13px;
+    font-weight:600; transition:all .15s;
+  }
+  .fav-btn.on { background:#fff0e6; color:var(--primary); }
+
+  /* ---------- 我的页 ---------- */
+  .profile-panel { background:var(--card); border-radius:var(--radius); padding:22px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .profile-head { display:flex; align-items:center; gap:14px; }
+  .profile-avatar {
+    width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#ff6b35,#ff8c5a);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:800;
+  }
+  .profile-stat { flex:1; display:flex; gap:10px; }
+  .p-stat { flex:1; text-align:center; background:#fafafa; border-radius:10px; padding:12px 4px; }
+  .p-stat .n { font-size:18px; font-weight:800; }
+  .p-stat .l { font-size:11px; color:var(--ink-2); margin-top:2px; }
 </style>
 </head>
 <body>
@@ -202,7 +238,53 @@
     </div>
     <div id="detail-body"></div>
   </div>
+
+  <!-- 我的收藏 -->
+  <div id="view-favorites" class="hidden">
+    <div class="section-head">
+      <h2>⭐ 我的收藏</h2>
+      <span class="sub" id="fav-sub"></span>
+    </div>
+    <div id="fav-list"></div>
+  </div>
+
+  <!-- 我的 -->
+  <div id="view-mine" class="hidden">
+    <div class="section-head"><h2>👤 我的</h2></div>
+    <div class="profile-panel">
+      <div class="profile-head">
+        <div class="profile-avatar">👤</div>
+        <div style="flex:1">
+          <div style="font-size:17px;font-weight:800" id="profile-name">自驾老王</div>
+          <div class="meta" style="color:#999" id="profile-phone"></div>
+        </div>
+      </div>
+      <div class="profile-stat" style="margin-top:16px">
+        <div class="p-stat"><div class="n" id="stat-fav">0</div><div class="l">收藏</div></div>
+        <div class="p-stat"><div class="n" id="stat-review">0</div><div class="l">点评</div></div>
+        <div class="p-stat"><div class="n" id="stat-coupon">0</div><div class="l">优惠券</div></div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="review-card" style="cursor:pointer" onclick="showFavorites()">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">⭐</span>
+            <div><div style="font-weight:700">我的收藏</div><div class="meta" style="color:#999">查看收藏的服务区</div></div>
+            <span style="margin-left:auto;color:#999">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- 底部导航栏 -->
+<div class="bottom-nav">
+  <div class="nav-item active" data-nav="home" onclick="switchNav('home')"><span class="ni">🏠</span>首页</div>
+  <div class="nav-item" data-nav="search" onclick="focusSearch()"><span class="ni">🔍</span>搜索</div>
+  <div class="nav-item" data-nav="fav" onclick="switchNav('fav')"><span class="ni">⭐</span>收藏</div>
+  <div class="nav-item" data-nav="mine" onclick="switchNav('mine')"><span class="ni">👤</span>我的</div>
+</div>
+<div class="bottom-spacer"></div>
 
 <script>
 const API = "";
@@ -298,8 +380,13 @@ async function openArea(areaId) {
   const ms = await api(`/merchants?service_area_id=${areaId}`);
   document.getElementById("detail-body").innerHTML = `
     <div class="detail-panel">
-      <h3 style="font-size:17px;font-weight:800">${area?area.name:""}</h3>
-      <div class="meta" style="color:#999;font-size:12px;margin-top:4px">${area?area.highway:""} · 距当前约 ${dist}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+        <div>
+          <h3 style="font-size:17px;font-weight:800">${area?area.name:""}</h3>
+          <div class="meta" style="color:#999;font-size:12px;margin-top:4px">${area?area.highway:""} · 距当前约 ${dist}</div>
+        </div>
+        <button class="fav-btn" id="detail-fav-btn" onclick="toggleFavorite(${areaId}, this)">♡ 收藏</button>
+      </div>
       ${area && area.description ? `<div class="meta" style="margin-top:6px;color:#666">${area.description}</div>` : ""}
     </div>
     <div class="section-head"><h2>业态商户</h2><span class="sub">${ms.length} 家</span></div>
@@ -414,6 +501,76 @@ async function doSearch() {
         ${(a.categories||[]).map(c=>`<span class="tag">${c}</span>`).join("")}
       </div>
     </div>`).join("");
+}
+
+// ---------- 底部导航 ----------
+function setNav(active) {
+  document.querySelectorAll(".bottom-nav .nav-item").forEach(n =>
+    n.classList.toggle("active", n.dataset.nav === active));
+}
+function hideAllViews() {
+  ["view-route","view-search","view-detail","view-favorites","view-mine"].forEach(v =>
+    document.getElementById(v).classList.add("hidden"));
+}
+function switchNav(name) {
+  if (name === "home") { hideAllViews(); document.getElementById("view-route").classList.remove("hidden"); setNav("home"); }
+  else if (name === "fav") { hideAllViews(); document.getElementById("view-favorites").classList.remove("hidden"); loadFavorites(); setNav("fav"); }
+  else if (name === "mine") { hideAllViews(); document.getElementById("view-mine").classList.remove("hidden"); loadMine(); setNav("mine"); }
+  else if (name === "search") { focusSearch(); }
+}
+function focusSearch() {
+  hideAllViews(); document.getElementById("view-search").classList.remove("hidden");
+  document.getElementById("search-input").focus(); setNav("search");
+  document.getElementById("search-list").innerHTML = '<div class="empty">输入关键词搜索沿途服务区</div>';
+  document.getElementById("search-sub").textContent = "";
+}
+function backToRoute() { switchNav("home"); }
+
+// ---------- 收藏 ----------
+async function toggleFavorite(areaId, btn) {
+  const r = await api("/favorites/toggle", {method:"POST", body: JSON.stringify({
+    user_id: currentUser, area_id: areaId
+  })});
+  if (btn) {
+    btn.classList.toggle("on", r.favorited);
+    btn.textContent = r.favorited ? "♥ 已收藏" : "♡ 收藏";
+  }
+  return r;
+}
+async function loadFavorites() {
+  const favs = await api(`/favorites?user_id=${currentUser}`);
+  document.getElementById("fav-sub").textContent = `${favs.length} 个`;
+  const list = document.getElementById("fav-list");
+  if (!favs.length) { list.innerHTML = '<div class="empty">还没有收藏，去首页逛逛吧~</div>'; return; }
+  list.innerHTML = favs.map(a => `
+    <div class="search-area-card" onclick="openArea(${a.id})">
+      <h3>${a.name}</h3>
+      <div class="meta">${a.highway} · 桩号 ${a.mile_marker||"-"}</div>
+      <div class="tags">
+        <span class="tag">${a.merchant_count} 家商户</span>
+        <span class="tag">⭐ ${(a.avg_rating||0).toFixed(1)}</span>
+      </div>
+      <button class="fav-btn on" style="margin-top:10px" onclick="event.stopPropagation();toggleFavorite(${a.id}, this).then(()=>loadFavorites())">♥ 已收藏</button>
+    </div>`).join("");
+}
+function showFavorites() { switchNav("fav"); }
+
+// ---------- 我的页 ----------
+async function loadMine() {
+  // 用户信息
+  const u = await api(`/users/${currentUser}`).catch(() => ({nickname:"自驾老王"}));
+  document.getElementById("profile-name").textContent = u.nickname || "自驾老王";
+  document.getElementById("profile-phone").textContent = u.phone ? `📱 ${u.phone}` : "";
+  // 收藏数
+  const favs = await api(`/favorites?user_id=${currentUser}`);
+  document.getElementById("stat-fav").textContent = favs.length;
+  // 点评数（统计当前用户所有点评 —— 通过全部点评过滤）
+  const all = await api("/reviews/all");
+  const mineRevs = all.filter(r => r.user_id === currentUser);
+  document.getElementById("stat-review").textContent = mineRevs.length;
+  // 优惠券数
+  const coupons = await api(`/users/me/coupons?user_id=${currentUser}`);
+  document.getElementById("stat-coupon").textContent = coupons.length;
 }
 
 renderCats();

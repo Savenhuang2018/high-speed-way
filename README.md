@@ -31,6 +31,7 @@ python3 test_stdlib.py
 |------|------|------|
 | GET | /health | 健康检查 |
 | GET | /service-areas | 服务区列表 |
+| GET | /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km= | 沿途服务区（按沿程距离升序） |
 | POST | /service-areas | 新建服务区 |
 | GET | /merchants?service_area_id=&category=&min_rating= | 商户列表（可筛选） |
 | GET | /merchants/{id} | 商户详情（含评分、点评数） |
@@ -49,7 +50,9 @@ python3 test_stdlib.py
 ## 项目结构
 ```
 server.py            # 主服务（零依赖，含静态首页托管）
-static/index.html    # 前端页面（车主端演示）
+static/index.html    # 前端页面（车主端：美团风格首页，沿途服务区）
+static/admin.html    # 运营后台页面
+docs/market-research.md  # 市场调研报告
 test_stdlib.py       # 零依赖集成测试
 verify_running.py    # 运行中服务验证脚本
 requirements.txt     # FastAPI 版依赖（可选）

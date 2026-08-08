@@ -76,9 +76,9 @@ def main():
         code, body = request("GET", "/health")
         check("健康检查", code == 200 and body["status"] == "ok")
 
-        # 2. 服务区列表（种子数据 2 个）
+        # 2. 服务区列表（种子数据 2 + G2 沿线 7 = 9 个）
         code, areas = request("GET", "/service-areas")
-        check("服务区列表返回2个", code == 200 and len(areas) == 2)
+        check("服务区列表返回9个", code == 200 and len(areas) == 9)
 
         # 3. 按服务区筛选商户（阳澄湖 id=1，餐饮）
         code, merchants = request("GET", "/merchants?service_area_id=1")
@@ -153,6 +153,22 @@ def main():
         check("看板返回200", code == 200)
         check("看板点评总数统计", code == 200 and dash["reviews"]["total"] >= 3)
         check("看板业态分布", code == 200 and isinstance(dash["category_distribution"], list))
+
+        # 10. 沿途服务区算法（G2 京沪高速 上海->北京）
+        # 当前位置：上海（31.23, 121.47），目的地：北京（39.90, 116.40）
+        code, route = request("GET",
+            "/route/areas?cur_lat=31.23&cur_lng=121.47&dest_lat=39.90&dest_lng=116.40")
+        check("沿途服务区返回200", code == 200)
+        check("沿途返回多个服务区", code == 200 and len(route) >= 3)
+        check("按沿程距离升序", code == 200 and
+              all(route[i]["distance_km"] <= route[i+1]["distance_km"]
+                  for i in range(len(route)-1)))
+        check("含沿程距离字段", code == 200 and all("distance_km" in a for a in route))
+        # 第一个应是最接近当前位置的（阳澄湖或梅村）
+        check("首个为最近服务区", code == 200 and route[0]["distance_km"] >= 0)
+        # 参数缺失应报 422
+        code, _ = request("GET", "/route/areas?cur_lat=31.23")
+        check("缺参数报422", code == 422)
     finally:
         proc.terminate()
         proc.wait(timeout=5)

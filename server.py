@@ -125,6 +125,97 @@ def _migrate(conn):
     conn.commit()
 
 
+# ---------------------------------------------------------------------------
+# 地理计算：沿途服务区筛选
+# ---------------------------------------------------------------------------
+import math
+
+
+def haversine_km(lat1, lng1, lat2, lng2):
+    """两点球面距离（公里）"""
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _local_xy(lat, lng, ref_lat, ref_lng):
+    """以参考点为原点的局部平面坐标（公里，近似）"""
+    x = haversine_km(ref_lat, ref_lng, ref_lat, lng) * (1 if lng >= ref_lng else -1)
+    y = haversine_km(ref_lat, ref_lng, lat, ref_lng) * (1 if lat >= ref_lat else -1)
+    return x, y
+
+
+def route_projection_km(cur_lat, cur_lng, dest_lat, dest_lng, area_lat, area_lng):
+    """计算服务区相对「当前位置->目的地」路径的位置。
+    返回 (off_path_km, along_km)：
+      - off_path_km: 服务区到路径直线的垂直距离（公里），越小越在路线旁
+      - along_km: 沿路径方向从当前位置到服务区的投影距离（公里）。
+                  正值 = 在前方（接下来会到）；负值 = 已越过。
+    用当前->目的地方向为局部坐标 X 轴做平面近似。
+    """
+    # 以当前位置为原点
+    ox, oy = _local_xy(cur_lat, cur_lng, cur_lat, cur_lng)  # = (0,0)
+    dx, dy = _local_xy(dest_lat, dest_lng, cur_lat, cur_lng)
+    ax, ay = _local_xy(area_lat, area_lng, cur_lat, cur_lng)
+
+    seg_len = math.hypot(dx, dy)
+    if seg_len < 1e-6:
+        return math.hypot(ax, ay), 0.0
+
+    # 单位方向向量 u = (ux, uy)
+    ux, uy = dx / seg_len, dy / seg_len
+    # 服务区向量 A 在路径方向上的投影（沿程距离）
+    along = ax * ux + ay * uy
+    # 垂直分量（偏离路径的距离）
+    perp_x, perp_y = ax - along * ux, ay - along * uy
+    off = math.hypot(perp_x, perp_y)
+    return off, along
+
+
+def route_areas(areas, cur_lat, cur_lng, dest_lat, dest_lng,
+                max_off_km=100.0, past_km=0.0):
+    """筛选「当前位置到目的地」沿途的服务区。
+    判定：服务区到路径直线的垂直距离 <= max_off_km（在高速沿线），
+    且沿程投影 > past_km（默认>0，即在当前位置前方，排除已过的）。
+    返回按沿程距离升序（最近的在前面）的服务区列表（含 distance_km 字段）。
+    """
+    result = []
+    for a in areas:
+        if a["latitude"] is None or a["longitude"] is None:
+            continue
+        off, along = route_projection_km(
+            cur_lat, cur_lng, dest_lat, dest_lng, a["latitude"], a["longitude"])
+        if off <= max_off_km and along > past_km:
+            item = dict(a)
+            item["off_path_km"] = round(off, 1)
+            item["distance_km"] = round(along, 1)  # 距当前沿程距离
+            result.append(item)
+    result.sort(key=lambda x: x["distance_km"])
+    return result
+
+
+def _handle_route_areas(self, params):
+    """GET /route/areas?cur_lat=&cur_lng=&dest_lat=&dest_lng=&max_off_km=
+    返回当前位置到目的地方向沿途的服务区（按沿程距离升序）
+    """
+    try:
+        cur_lat = float(params["cur_lat"][0])
+        cur_lng = float(params["cur_lng"][0])
+        dest_lat = float(params["dest_lat"][0])
+        dest_lng = float(params["dest_lng"][0])
+    except (KeyError, ValueError):
+        return self._send(422, {"detail": "需要 cur_lat/cur_lng/dest_lat/dest_lng 参数"})
+    max_off = float(params["max_off_km"][0]) if params.get("max_off_km") else 100.0
+    conn = get_conn()
+    areas = [dict(r) for r in conn.execute("SELECT * FROM service_areas").fetchall()]
+    conn.close()
+    result = route_areas(areas, cur_lat, cur_lng, dest_lat, dest_lng, max_off)
+    self._send(200, result)
+
+
 # 敏感词表（用于点评自动审核，命中则转人工）
 SENSITIVE_WORDS = ["脏话", "垃圾服务", "坑人", "骗子", "难吃到爆炸"]
 
@@ -182,6 +273,21 @@ def seed_data():
         ("京港澳高速窦店服务区", "G4京港澳高速", "K37", 39.67, 116.08,
          "华北地区大型综合服务区，加油充电便利。"),
     )
+
+    # G2 京沪高速「上海->北京」方向沿线服务区序列（用于沿途算法演示）
+    g2_areas = [
+        ("沪宁高速梅村服务区", "G2京沪高速", "K1090", 31.60, 120.42, "无锡段综合服务区，餐饮种类多。"),
+        ("京沪高速高邮服务区", "G2京沪高速", "K935", 32.80, 119.45, "扬州北服务区，特产丰富。"),
+        ("京沪高速沭阳服务区", "G2京沪高速", "K755", 34.11, 118.78, "苏北大型服务区，停车位充足。"),
+        ("京沪高速郯城服务区", "G2京沪高速", "K615", 34.61, 118.35, "鲁南重要节点服务区。"),
+        ("京沪高速新泰服务区", "G2京沪高速", "K505", 35.91, 117.77, "山东中段服务区。"),
+        ("京沪高速德州服务区", "G2京沪高速", "K375", 37.43, 116.29, "鲁西北服务区，近冀鲁交界。"),
+        ("京沪高速沧州服务区", "G2京沪高速", "K260", 38.30, 116.83, "河北段服务区。"),
+    ]
+    for name, hw, km, lat, lng, desc in g2_areas:
+        c.execute(
+            "INSERT INTO service_areas (name, highway, mile_marker, latitude, longitude, description) "
+            "VALUES (?,?,?,?,?,?)", (name, hw, km, lat, lng, desc))
 
     c.execute("INSERT INTO merchants (service_area_id, name, category, avg_price, open_hours, description) "
               "VALUES (1,?,?,?,?,?)", ("阳澄湖蟹味馆", "餐饮", 88, "06:00-22:00", "正宗阳澄湖大闸蟹，招牌蟹黄豆腐。"))
@@ -299,6 +405,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"status": "ok"})
             elif path == "/service-areas":
                 self._handle_list_service_areas()
+            elif path == "/route/areas":
+                _handle_route_areas(self, params)
             elif path.startswith("/service-areas/"):
                 self._handle_get_service_area(int(path.rsplit("/", 1)[1]))
             elif path == "/merchants":

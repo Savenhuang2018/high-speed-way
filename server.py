@@ -293,6 +293,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path in ("", "/index.html"):
                 self._send_static("index.html", "text/html")
+            elif path == "/admin":
+                self._send_static("admin.html", "text/html")
             elif path == "/health":
                 self._send(200, {"status": "ok"})
             elif path == "/service-areas":
@@ -305,6 +307,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_get_merchant(int(path.rsplit("/", 1)[1]))
             elif path == "/reviews":
                 self._handle_list_reviews(params)
+            elif path == "/reviews/pending":
+                self._handle_list_pending_reviews()
+            elif path == "/reviews/all":
+                self._handle_list_all_reviews()
             elif path == "/coupons":
                 self._handle_list_coupons(params)
             elif path == "/users/me/coupons":
@@ -341,6 +347,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path.startswith("/reviews/") and path.endswith("/approve"):
                 rid = int(path.split("/")[2])
                 self._handle_approve_review(rid)
+            elif path.startswith("/reviews/") and path.endswith("/reject"):
+                rid = int(path.split("/")[2])
+                self._handle_reject_review(rid)
             else:
                 self._send(404, {"detail": "Not Found"})
         except ValueError:
@@ -462,6 +471,38 @@ class Handler(BaseHTTPRequestHandler):
         ).fetchall()
         conn.close()
         self._send(200, [dict(r) for r in rows])
+
+    def _handle_list_pending_reviews(self):
+        """后台：列出待审核点评"""
+        conn = get_conn()
+        rows = conn.execute(
+            "SELECT r.*, u.nickname AS user_nickname FROM reviews r "
+            "JOIN users u ON u.id = r.user_id "
+            "WHERE r.is_approved=0 ORDER BY r.created_at DESC").fetchall()
+        conn.close()
+        self._send(200, [dict(r) for r in rows])
+
+    def _handle_list_all_reviews(self):
+        """后台：列出全部点评（含待审核）"""
+        conn = get_conn()
+        rows = conn.execute(
+            "SELECT r.*, u.nickname AS user_nickname FROM reviews r "
+            "JOIN users u ON u.id = r.user_id "
+            "ORDER BY r.created_at DESC").fetchall()
+        conn.close()
+        self._send(200, [dict(r) for r in rows])
+
+    def _handle_reject_review(self, review_id):
+        """后台：驳回点评（删除）"""
+        conn = get_conn()
+        row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if not row:
+            conn.close()
+            return self._send(404, {"detail": "点评不存在"})
+        conn.execute("DELETE FROM reviews WHERE id=?", (review_id,))
+        conn.commit()
+        conn.close()
+        self._send(200, {"detail": "点评已驳回", "id": review_id})
 
     def _handle_create_review(self, body):
         merchant_id = body.get("merchant_id")

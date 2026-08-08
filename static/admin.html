@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>服务区运营后台 · 管理端</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #2d3436; }
+  header { background: #2d3436; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; }
+  header a { color: #74b9ff; font-size: 13px; text-decoration: none; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .stat-card .num { font-size: 28px; font-weight: 700; }
+  .stat-card .label { color: #636e72; font-size: 13px; margin-top: 4px; }
+  .panel { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 16px; margin-bottom: 14px; border-left: 4px solid #0984e3; padding-left: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; }
+  th { color: #636e72; font-weight: 600; background: #fafafa; }
+  .badge { display:inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
+  .badge-green { background:#d4edda; color:#155724; }
+  .badge-red { background:#f8d7da; color:#721c24; }
+  .badge-gray { background:#e2e3e5; color:#383d41; }
+  .btn { padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .btn-ok { background:#0984e3; color:#fff; }
+  .btn-warn { background:#fdcb6e; color:#2d3436; }
+  .btn-danger { background:#e17055; color:#fff; }
+  .stars { color:#fdcb6e; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { padding:8px 16px; border-radius:8px; background:#dfe6e9; cursor:pointer; font-size:14px; }
+  .tab.active { background:#0984e3; color:#fff; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .empty { color:#b2bec3; text-align:center; padding:20px; }
+  .reply-box { background:#e8f4fd; border-radius:6px; padding:8px 10px; margin-top:6px; font-size:13px; }
+  .muted { color:#b2bec3; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛣️ 服务区运营后台</h1>
+  <a href="/index.html">← 返回车主端</a>
+</header>
+
+<div class="container">
+  <!-- 数据看板 -->
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="moderation">待审核点评 <span id="pending-count" style="color:#e17055"></span></div>
+    <div class="tab" data-tab="merchants">商户管理</div>
+    <div class="tab" data-tab="reviews">全部点评</div>
+    <div class="tab" data-tab="areas">服务区</div>
+  </div>
+
+  <!-- 待审核 -->
+  <div class="tab-content active" id="tab-moderation">
+    <div class="panel">
+      <h2>点评审核</h2>
+      <div id="moderation-list"></div>
+    </div>
+  </div>
+
+  <!-- 商户 -->
+  <div class="tab-content" id="tab-merchants">
+    <div class="panel">
+      <h2>商户管理（按评分排序）</h2>
+      <table>
+        <thead><tr><th>商户</th><th>业态</th><th>服务区</th><th>评分</th><th>点评数</th><th>状态</th></tr></thead>
+        <tbody id="merchant-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 全部点评 -->
+  <div class="tab-content" id="tab-reviews">
+    <div class="panel">
+      <h2>全部点评</h2>
+      <div id="reviews-list"></div>
+    </div>
+  </div>
+
+  <!-- 服务区 -->
+  <div class="tab-content" id="tab-areas">
+    <div class="panel">
+      <h2>服务区列表</h2>
+      <div id="areas-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "";
+
+async function api(path, opts={}) {
+  const res = await fetch(API + path, {headers: {"Content-Type":"application/json"}, ...opts});
+  const text = await res.text();
+  return text ? JSON.parse(text) : {};
+}
+
+// Tabs
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  document.getElementById("tab-" + t.dataset.tab).classList.add("active");
+}));
+
+// 数据看板
+async function loadDashboard() {
+  const d = await api("/stats/dashboard");
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card"><div class="num">${d.service_areas}</div><div class="label">服务区</div></div>
+    <div class="stat-card"><div class="num">${d.merchants}</div><div class="label">入驻商户</div></div>
+    <div class="stat-card"><div class="num">${d.reviews.total}</div><div class="label">总点评</div></div>
+    <div class="stat-card"><div class="num" style="color:#e17055">${d.reviews.pending}</div><div class="label">待审核</div></div>
+    <div class="stat-card"><div class="num">${d.avg_merchant_rating}</div><div class="label">平均评分</div></div>
+    <div class="stat-card"><div class="num">${d.active_coupons}</div><div class="label">优惠券</div></div>`;
+  document.getElementById("pending-count").textContent = d.reviews.pending ? `(${d.reviews.pending})` : "";
+}
+
+// 加载待审核点评：对所有商户查 review，智能审核后待审核的才出现
+// 说明：后台通过遍历商户调 /reviews 只能拿到已审核的，故增加 /reviews/all 与 /reviews/pending 接口由后端提供
+async function loadModeration() {
+  const list = document.getElementById("moderation-list");
+  const pending = await api("/reviews/pending");
+  if (!pending.length) { list.innerHTML = '<div class="empty">🎉 没有待审核点评</div>'; return; }
+  list.innerHTML = pending.map(r => `
+    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div>
+        <span class="stars">${"★".repeat(r.rating)}</span>
+        <strong>${r.user_nickname || "匿名"}</strong>
+        <span class="muted">商户#${r.merchant_id} · ${(r.created_at||"").slice(0,16)}</span>
+      </div>
+      <div style="margin:6px 0">${r.content || "(无内容)"}</div>
+      <div class="muted">${r.tags ? r.tags.split(",").map(t=>"#"+t).join(" ") : ""}</div>
+      <div style="margin-top:10px">
+        <button class="btn btn-ok" onclick="approve(${r.id})">通过</button>
+        <button class="btn btn-danger" onclick="reject(${r.id})">驳回</button>
+      </div>
+    </div>`).join("");
+}
+
+async function approve(id) { await api(`/reviews/${id}/approve`, {method:"POST"}); loadModeration(); loadDashboard(); loadReviews(); }
+async function reject(id)  { await api(`/reviews/${id}/reject`, {method:"POST"}); loadModeration(); loadDashboard(); loadReviews(); }
+
+// 商户管理
+async function loadMerchants() {
+  const ms = await api("/merchants");
+  document.getElementById("merchant-table").innerHTML = ms.map(m => `
+    <tr>
+      <td>${m.name}</td><td>${m.category}</td><td>服务区#${m.service_area_id}</td>
+      <td><span class="stars">${"★".repeat(Math.round(m.rating))}</span> ${m.rating.toFixed(1)}</td>
+      <td>${m.review_count}</td>
+      <td>${m.is_active ? '<span class="badge badge-green">营业中</span>' : '<span class="badge badge-gray">已下架</span>'}</td>
+    </tr>`).join("") || '<tr><td colspan="6" class="empty">暂无商户</td></tr>';
+}
+
+// 全部点评
+async function loadReviews() {
+  const all = await api("/reviews/all");
+  document.getElementById("reviews-list").innerHTML = all.length ? all.map(r => `
+    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div>
+        <span class="stars">${"★".repeat(r.rating)}</span>
+        <strong>${r.user_nickname || "匿名"}</strong>
+        <span class="muted">商户#${r.merchant_id} · ${(r.created_at||"").slice(0,16)}</span>
+        ${r.is_approved ? '<span class="badge badge-green">已通过</span>' : '<span class="badge badge-gray">待审核</span>'}
+      </div>
+      <div style="margin:6px 0">${r.content || "(无内容)"}</div>
+      ${r.merchant_reply ? `<div class="reply-box">商家回复：${r.merchant_reply}</div>` : ""}
+    </div>`).join("") : '<div class="empty">暂无点评</div>';
+}
+
+// 服务区
+async function loadAreas() {
+  const areas = await api("/service-areas");
+  document.getElementById("areas-list").innerHTML = areas.map(a => `
+    <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px">
+      <strong>${a.name}</strong>
+      <span class="muted">· ${a.highway} · 桩号${a.mile_marker||"-"}</span>
+      <div class="muted" style="margin-top:4px">${a.description||""}</div>
+    </div>`).join("") || '<div class="empty">暂无服务区</div>';
+}
+
+loadDashboard();
+loadModeration();
+loadMerchants();
+loadReviews();
+loadAreas();
+</script>
+</body>
+</html>

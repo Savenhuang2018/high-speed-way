@@ -82,6 +82,8 @@ def init_db():
             content TEXT,
             tags TEXT,
             is_approved INTEGER DEFAULT 0,
+            merchant_reply TEXT,
+            replied_at TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS coupons (
@@ -107,7 +109,52 @@ def init_db():
         """
     )
     conn.commit()
+    _migrate(conn)
     conn.close()
+
+
+def _migrate(conn):
+    """轻量迁移：为已存在的旧表补充新增列（幂等）"""
+    def add_col(table, col, ddl):
+        cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if col not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+
+    add_col("reviews", "merchant_reply", "TEXT")
+    add_col("reviews", "replied_at", "TEXT")
+    conn.commit()
+
+
+# 敏感词表（用于点评自动审核，命中则转人工）
+SENSITIVE_WORDS = ["脏话", "垃圾服务", "坑人", "骗子", "难吃到爆炸"]
+
+
+def review_needs_manual_review(content, tags):
+    """点评是否需要人工审核：
+    - 命中敏感词 -> 人工审核
+    - 评分为低分（<=2）由调用方另行判断
+    返回 (needs_review, matched_word)
+    """
+    if not content and not tags:
+        return True, None  # 空内容交给人工
+    text = f"{content or ''} {tags or ''}"
+    for w in SENSITIVE_WORDS:
+        if w in text:
+            return True, w
+    return False, None
+
+
+def auto_approve_policy(rating, content, tags):
+    """智能审核策略：
+    返回 (is_approved, matched_word)
+    命中敏感词或低分(<=2) -> 不自动通过（转人工）；否则自动通过
+    """
+    needs, word = review_needs_manual_review(content, tags)
+    if needs:
+        return False, word
+    if rating <= 2:
+        return False, None  # 低分差评，人工复核
+    return True, None
 
 
 def seed_data():
@@ -288,6 +335,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path.startswith("/coupons/") and path.endswith("/claim"):
                 cid, uid = int(path.split("/")[2]), self._read_body().get("user_id")
                 self._handle_claim_coupon(cid, uid)
+            elif path.startswith("/reviews/") and path.endswith("/reply"):
+                rid = int(path.split("/")[2])
+                self._handle_merchant_reply(rid, self._read_body())
             elif path.startswith("/reviews/") and path.endswith("/approve"):
                 rid = int(path.split("/")[2])
                 self._handle_approve_review(rid)
@@ -426,12 +476,17 @@ class Handler(BaseHTTPRequestHandler):
         if not conn.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone():
             conn.close()
             return self._send(404, {"detail": "用户不存在"})
+        # 智能审核：命中敏感词或低分(<=2) -> 转人工；否则自动通过
+        is_approved, matched = auto_approve_policy(
+            rating, body.get("content"), body.get("tags"))
         cur = conn.execute(
             "INSERT INTO reviews (merchant_id, user_id, rating, content, tags, is_approved) "
-            "VALUES (?,?,?,?,?,0)",
-            (merchant_id, user_id, rating, body.get("content"), body.get("tags")),
+            "VALUES (?,?,?,?,?,?)",
+            (merchant_id, user_id, rating, body.get("content"), body.get("tags"), int(is_approved)),
         )
         conn.commit()
+        if is_approved:
+            recompute_merchant_rating(conn, merchant_id)
         row = conn.execute(
             "SELECT r.*, u.nickname AS user_nickname FROM reviews r JOIN users u ON u.id=r.user_id "
             "WHERE r.id=?", (cur.lastrowid,)).fetchone()
@@ -446,6 +501,29 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, {"detail": "点评不存在"})
         conn.execute("UPDATE reviews SET is_approved=1 WHERE id=?", (review_id,))
         recompute_merchant_rating(conn, row["merchant_id"])
+        conn.commit()
+        out = conn.execute(
+            "SELECT r.*, u.nickname AS user_nickname FROM reviews r JOIN users u ON u.id=r.user_id "
+            "WHERE r.id=?", (review_id,)).fetchone()
+        conn.close()
+        self._send(200, dict(out))
+
+    def _handle_merchant_reply(self, review_id, body):
+        """商户回复点评"""
+        reply = (body.get("reply") or "").strip()
+        if not reply:
+            return self._send(422, {"detail": "回复内容不能为空"})
+        conn = get_conn()
+        row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if not row:
+            conn.close()
+            return self._send(404, {"detail": "点评不存在"})
+        if not row["is_approved"]:
+            conn.close()
+            return self._send(409, {"detail": "点评尚未审核通过，无法回复"})
+        conn.execute(
+            "UPDATE reviews SET merchant_reply=?, replied_at=datetime('now') WHERE id=?",
+            (reply, review_id))
         conn.commit()
         out = conn.execute(
             "SELECT r.*, u.nickname AS user_nickname FROM reviews r JOIN users u ON u.id=r.user_id "

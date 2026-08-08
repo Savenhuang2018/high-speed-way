@@ -92,20 +92,39 @@ def main():
         check("商户详情评分>0", code == 200 and m["rating"] > 0)
         check("商户点评数=2", code == 200 and m["review_count"] == 2)
 
-        # 5. 发表点评 -> 待审核不可见 -> 审核通过后可见
+        # 5. 智能审核：高分无敏感词点评自动通过并立即可见
         code, rev = request("POST", "/reviews",
                             {"merchant_id": 1, "user_id": 1, "rating": 4, "content": "测试点评"})
         check("发表点评201", code == 201)
-        check("新点评待审核", rev["is_approved"] == 0)
+        check("高分点评自动通过", rev["is_approved"] == 1)
         rid = rev["id"]
         code, reviews = request("GET", "/reviews?merchant_id=1")
-        check("审核前不可见(仍2条)", code == 200 and len(reviews) == 2)
-        code, rev2 = request("POST", f"/reviews/{rid}/approve")
-        check("审核通过", code == 200 and rev2["is_approved"] == 1)
-        code, reviews = request("GET", "/reviews?merchant_id=1")
-        check("审核后可见(3条)", code == 200 and len(reviews) == 3)
+        check("自动通过后立即可见(3条)", code == 200 and len(reviews) == 3)
         code, m = request("GET", "/merchants/1")
-        check("评分已重算", code == 200 and m["review_count"] == 3)
+        check("评分已重算(点评数3)", code == 200 and m["review_count"] == 3)
+
+        # 5b. 敏感词点评转人工审核（不自动通过）
+        code, rev2 = request("POST", "/reviews",
+                             {"merchant_id": 1, "user_id": 1, "rating": 1, "content": "这家店太坑人了"})
+        check("敏感词点评转人工", code == 201 and rev2["is_approved"] == 0)
+        code, reviews = request("GET", "/reviews?merchant_id=1")
+        check("敏感词点评不可见(仍3条)", code == 200 and len(reviews) == 3)
+        # 人工审核通过后可见
+        code, rev3 = request("POST", f"/reviews/{rev2['id']}/approve")
+        check("人工审核通过", code == 200 and rev3["is_approved"] == 1)
+        code, reviews = request("GET", "/reviews?merchant_id=1")
+        check("人工通过后可见(4条)", code == 200 and len(reviews) == 4)
+
+        # 5c. 低分差评(<=2)即使无敏感词也转人工
+        code, rev4 = request("POST", "/reviews",
+                             {"merchant_id": 1, "user_id": 1, "rating": 2, "content": "一般般"})
+        check("低分差评转人工", code == 201 and rev4["is_approved"] == 0)
+
+        # 5d. 商户回复点评
+        code, rep = request("POST", f"/reviews/{rid}/reply", {"reply": "感谢支持，欢迎再来！"})
+        check("商户回复成功", code == 200 and rep["merchant_reply"] == "感谢支持，欢迎再来！")
+        code, _ = request("POST", f"/reviews/{rid}/reply", {"reply": ""})
+        check("空回复被拒(422)", code == 422)
 
         # 6. 校验：评分为6应被拒
         code, _ = request("POST", "/reviews", {"merchant_id": 1, "user_id": 1, "rating": 6})

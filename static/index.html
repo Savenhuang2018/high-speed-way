@@ -138,6 +138,7 @@ async function showMerchant(id) {
         </div>
         <div style="margin:4px 0">${r.content || ""}</div>
         <div class="tag">${r.tags ? r.tags.split(",").map(t=>"#"+t).join(" ") : ""}</div>
+        ${r.merchant_reply ? `<div style="margin-top:6px;padding:6px 10px;background:#e8f4fd;border-radius:6px;font-size:13px"><span style="color:#0984e3;font-weight:600">商家回复</span>：${r.merchant_reply}<div class="time">${(r.replied_at||"").slice(0,16)}</div></div>` : ""}
       </div>`).join("") : '<div class="meta">还没有点评，来抢沙发~</div>'}
     <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
     <div style="font-weight:600">发表点评：</div>

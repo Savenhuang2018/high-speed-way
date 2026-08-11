@@ -7,6 +7,20 @@
 - Android SDK（含 platform-tools / build-tools / platform android-34）
 - Android Gradle Plugin 环境
 
+> ⚠️ 网络说明：Android SDK 与 AGP 依赖只能从 `dl.google.com` 下载。
+> 若该源不可达（如部分网络环境），标准 Gradle 构建无法进行。
+
+## 辅助脚本（网络恢复后可用）
+当前网络下 `dl.google.com` / 大型下载源受限，以下脚本已准备好，换网络后运行即可：
+```bash
+# 1. 从 Adoptium (GitHub) 安装 JDK 17 到 ~/java
+python3 install_jdk.py
+
+# 2. 从 services.gradle.org 下载 gradle 并提取 gradle-wrapper.jar
+python3 fetch_wrapper.py
+```
+（`install_jdk.py` 需能访问 api.github.com；`fetch_wrapper.py` 需能访问 services.gradle.org）
+
 ## 快速开始
 1. 将本目录拷贝到能访问 dl.google.com 的机器
 2. 配置 SDK 路径（见 local.properties）

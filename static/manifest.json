@@ -1,0 +1,37 @@
+{
+  "name": "高速服务区 · 车主服务与点评",
+  "short_name": "高速服务区",
+  "description": "高速路上的大众点评+服务区导览：查看沿途服务区业态、商户评分与点评",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f5f3",
+  "theme_color": "#ff6b35",
+  "scope": "/",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "搜索服务区",
+      "url": "/?action=search",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "运营后台",
+      "url": "/admin"
+    }
+  ]
+}

@@ -431,14 +431,18 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(raw.decode("utf-8") or "{}")
 
     def _send_static(self, name, content_type):
-        """提供静态文件（首页）"""
+        """提供静态文件"""
         path = os.path.join(STATIC_DIR, name)
         if not os.path.exists(path):
             return self._send(404, {"detail": "Not Found"})
         with open(path, "rb") as f:
             body = f.read()
         self.send_response(200)
-        self.send_header("Content-Type", content_type + "; charset=utf-8")
+        # 文本类型加 charset，二进制类型不加
+        if content_type.startswith(("text/", "application/javascript", "application/manifest+json", "application/json")):
+            self.send_header("Content-Type", content_type + "; charset=utf-8")
+        else:
+            self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -457,6 +461,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_static("index.html", "text/html")
             elif path == "/admin":
                 self._send_static("admin.html", "text/html")
+            elif path == "/manifest.json":
+                self._send_static("manifest.json", "application/manifest+json")
+            elif path == "/sw.js":
+                self._send_static("sw.js", "application/javascript")
+            elif path == "/icon-192.png":
+                self._send_static("icon-192.png", "image/png")
+            elif path == "/icon-512.png":
+                self._send_static("icon-512.png", "image/png")
             elif path == "/health":
                 self._send(200, {"status": "ok"})
             elif path == "/service-areas":

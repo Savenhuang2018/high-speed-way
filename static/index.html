@@ -2,7 +2,14 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ff6b35">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="高速服务区">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
 <title>高速服务区 · 车主服务与点评</title>
 <style>
   :root {
@@ -616,6 +623,39 @@ async function loadMine() {
 
 renderCats();
 loadRoute();
+
+// ---------- PWA Service Worker ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('SW registered:', reg.scope);
+    }).catch(err => console.log('SW registration failed:', err));
+  });
+}
+
+// ---------- PWA 安装提示 ----------
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // 显示安装按钮
+  const btn = document.createElement('div');
+  btn.id = 'pwa-install-banner';
+  btn.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(240,90,36,.4);z-index:100;cursor:pointer;display:flex;align-items:center;gap:8px';
+  btn.innerHTML = '📱 添加到桌面，随时查看沿途服务区';
+  btn.onclick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') console.log('PWA installed');
+      deferredPrompt = null;
+      btn.remove();
+    }
+  };
+  document.body.appendChild(btn);
+  // 10秒后自动消失
+  setTimeout(() => { if (btn.parentNode) btn.remove(); }, 10000);
+});
 </script>
 </body>
 </html>

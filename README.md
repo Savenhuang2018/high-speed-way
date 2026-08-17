@@ -64,6 +64,7 @@ python3 test_stdlib.py
 ```
 server.py            # 主服务（零依赖，含静态首页托管）
 amap.py              # 高德地图接入模块（搜索/路径规划/解析/幂等入库）
+eval_deepseek.sh     # DeepSeek 评测脚本（lm-evaluation-harness via 火山引擎）
 static/index.html    # 前端页面（车主端：美团风格首页，沿途服务区）
 static/admin.html    # 运营后台页面
 docs/market-research.md  # 市场调研报告
@@ -88,3 +89,17 @@ tests/               # FastAPI 版测试（需 pip 依赖）
 - [ ] 对接充电桩实时状态（充电平台 API / 人工上报）
 - [ ] 微信小程序端（复用现有 API）
 - [ ] 运营 PC 后台（商户管理、点评审核、数据看板）
+
+## DeepSeek 评测（lm-evaluation-harness）
+基于 lm-eval 0.4.12，通过火山引擎方舟评测 DeepSeek 模型。
+```bash
+# 评测 gsm8k（5 个样本）
+./eval_deepseek.sh gsm8k 5
+
+# 评测多个任务（100 样本）
+./eval_deepseek.sh mmlu,arc_challenge 100
+```
+- 模型：deepseek-v4-flash-ga-260731（可改 eval_deepseek.sh 顶部）
+- 说明：生成类任务（gsm8k/mmlu 等）适用；multiple_choice 类（hellaswag 等）因 chat 模型无 logprobs 不支持
+- 评测真实调用火山引擎 API，消耗 token
+- 认证：从 `~/.hermes/.env` 的 ARK key 读取
